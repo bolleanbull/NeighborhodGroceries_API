@@ -1,20 +1,43 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from rest_framework.request import Request
+from rest_framework.response import Response
 
-from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
+
+from rest_framework.decorators import action
+
+from rest_framework.permissions import(
+    IsAdminUser,
+    IsAuthenticated, 
+    IsAuthenticatedOrReadOnly,
+    AllowAny
+)
+
+from .permissions import (
+    IsAdminOrResourceOwner ,
+    IsAdminOrRealUser, 
+    IsAdminOrBorrower,
+    NoManZone,
+
+
+)
 
 
 from .serializer import (
     UserSerializerClass,
     ResourceSerializerClass,
+    RequestResourceSerializerClass, 
+    MessageSerializer,
+    RatingSerializerClass
 )
+
 from .models import (
     Profile,
     RequestResource, 
     Resource, 
     Message, 
     Rating
-
 
 )
 
@@ -26,26 +49,146 @@ class UserApiViewSet(viewsets.ModelViewSet):
 
     queryset = User.objects.all()
     serializer_class = UserSerializerClass  
-    permission_classes = [IsAuthenticated]
-
 
     def get_permissions(self):
-        if self.action=='list':
-            self.permission_classes = [IsAdminUser]
-        return super().get_permissions()
+        
+        if self.action=='create':
+            self.permission_classes = [AllowAny]
+        else:
+            self.permission_classes = [IsAdminOrRealUser]
+
+        return [permission() for permission in self.permission_classes]
     
+
+
 class ResourceManagementViewSet(viewsets.ModelViewSet):
 
     queryset = Resource.objects.all()
     serializer_class = ResourceSerializerClass
+    permission_classes = [IsAuthenticated]
 
-
+    def get_permissions(self):
+        
+        if self.action in ['list', 'retrieve']:
+            self.permission_classes = [IsAuthenticated]
+            
+        else: 
+            self.permission_classes = [IsAdminOrResourceOwner]
+        return [permission() for permission in self.permission_classes]
+    
     def get_serializer_context(self):
         context =  super().get_serializer_context()
         context['user'] = self.request.user
 
         return context
     
+
+class RequestResourceViewSet(viewsets.ModelViewSet):
+
+    queryset = RequestResource.objects.all()
+    serializer_class  =  RequestResourceSerializerClass
+    permission_classes = [IsAuthenticated, IsAdminOrBorrower]
+
+
+    def get_permissions(self):
+        
+        if self.request.method in ['PUT', 'PATCH' ]:
+            self.permission_classes = [NoManZone]
+            return [NoManZone()]
+        return [permission() for permission in self.permission_classes]
+
+    def get_queryset(self):
+        qs =  super().get_queryset()
+        if self.request.user.is_superuser:
+            return qs 
+        
+        return qs.filter(user=self.request.user)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['user'] = self.request.user
+        return context
+
+    @action(methods=['GET'],detail=False, url_path="my_resources_requests", url_name="my_resource_request", permission_classes=[IsAuthenticated])
+    def my_resouces_request(self,request, *args, **kwargs):
+
+        requests_resources = RequestResource.objects.select_related('resource').filter(resource__owner=request.user)
+        print(requests_resources)
+        serializer = RequestResourceSerializerClass(requests_resources, many=True)
+        
+        return  Response(serializer.data)
+    
+    @action(methods=['POST'],detail=True, url_name="request_action", permission_classes = [IsAdminOrResourceOwner])
+
+    def request_action(self, request ,pk):
+
+        request_obj = get_object_or_404(RequestResource, pk=pk)
+   
+        request_obj.status = request.data.get('action')
+        request_obj.save()
+        ## we are chaging the status of the resource here 
+        resource = Resource.objects.get(pk=request_obj.resource.id)
+        resource.availabel = False if request_obj.status=='Accepted' else True
+        if not resource.availabel:
+            resource.save()
+
+        print(resource.availabel)
+
+        serializer = RequestResourceSerializerClass(request_obj)
+        return Response(serializer.data)
+    
+
+
+
+class MessageViewSet(viewsets.ModelViewSet):
+
+    queryset = Message.objects.select_related('resource')
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        
+        if not self.action in ['list', 'retrieve']:
+            self.permission_classes= [IsAdminUser]
+        return [permission() for permission in self.permission_classes]
+    
+    def get_queryset(self):
+        qs= super().get_queryset()
+        return qs.filter(resource__owner=self.request.user)
+
+    def get_serializer_context(self):
+        context  =  super().get_serializer_context()
+        context['user'] = self.request.user
+
+        return context
+    
+
+class RatingViewSet(viewsets.ModelViewSet):
+
+    queryset  = Rating.objects.select_related('resource','user')
+    serializer_class = RatingSerializerClass 
+
+    def get_serializer_context(self):
+        context  =  super().get_serializer_context()
+        context['user'] = self.request.user
+        return context
+    def get_permissions(self):
+    
+        if not self.action in [ 'list','retrieve','create' ]:
+            self.permission_classes = [NoManZone]
+            return [NoManZone()]
+        return [permission() for permission in self.permission_classes]
+
+
+
+
+
+
+
+
+
+
+
 
 
 

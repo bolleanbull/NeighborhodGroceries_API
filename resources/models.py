@@ -66,7 +66,6 @@ class RequestResource(models.Model):
         PENDING = 'Pending'
         ACCEPTED = 'Accepted'
         REJECTED = 'Rejected'
-        CANCELED = 'Canceled'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='requests')
     resource = models.ForeignKey(Resource, on_delete=models.CASCADE, related_name='borrow_requests')
@@ -80,7 +79,6 @@ class RequestResource(models.Model):
 
 class Message(models.Model):
 
-    reciepient = models.ForeignKey(User, on_delete=models.CASCADE,related_name='messages')
     resource = models.ForeignKey(Resource, on_delete=models.CASCADE)
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     text = models.TextField()
@@ -89,7 +87,7 @@ class Message(models.Model):
 class Rating(models.Model):
 
     resource = models.ForeignKey(Resource, on_delete=models.CASCADE,related_name='ratings')
-    person = models.ForeignKey(User,on_delete=models.CASCADE)
+    user = models.ForeignKey(User,on_delete=models.CASCADE)
     like = models.PositiveSmallIntegerField(default=0)
     feedback = models.TextField()
 

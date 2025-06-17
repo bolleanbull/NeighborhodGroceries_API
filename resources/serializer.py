@@ -1,4 +1,5 @@
 
+from django.shortcuts import get_object_or_404
 
 from rest_framework import serializers
 from django.contrib.auth.models import User
@@ -10,7 +11,6 @@ from .models import(
     Message
 
 )
-
 
 class ProfileSerializerClass(serializers.ModelSerializer):
 
@@ -27,8 +27,8 @@ class ProfileSerializerClass(serializers.ModelSerializer):
 
 class UserSerializerClass(serializers.ModelSerializer):
 
-    profile = ProfileSerializerClass()
-    user_id = serializers.IntegerField(source='id')
+    profile = ProfileSerializerClass(required=False)
+    user_id = serializers.IntegerField(source='id', read_only=True)
     
     class Meta:
         model = User
@@ -72,9 +72,11 @@ class UserSerializerClass(serializers.ModelSerializer):
 class ResourceSerializerClass(serializers.ModelSerializer):
 
     owner = serializers.StringRelatedField()
+    resource_id  = serializers.IntegerField(source='id', read_only=True)
     class Meta: 
         model = Resource
         fields = [
+            'resource_id',
             'owner',
             'name', 
             'condition',
@@ -83,6 +85,7 @@ class ResourceSerializerClass(serializers.ModelSerializer):
             'location',
             'description',
             'uploaded_on',
+
         ]
         read_only_fields  = ['owner', 'availabel', 'uploaded_on']
 
@@ -91,14 +94,90 @@ class ResourceSerializerClass(serializers.ModelSerializer):
         return Resource.objects.create(**validated_data,owner=user)
     
     
+
+
+
+class RequestResourceSerializerClass(serializers.ModelSerializer):
+    request_user = serializers.IntegerField(source="user.id", read_only=True)
+    resource_id = serializers.IntegerField(write_only=True)
+    resource = ResourceSerializerClass(read_only=True)
+    object_id = serializers.IntegerField(source='id', read_only=True)
+
+    
+
+    class Meta: 
+        model = RequestResource
+        fields = [
+            'object_id',
+            "request_user",
+            "resource_id",
+            "resource",
+            "duration_in_days", 
+            "starting_date",
+            "end_date",
+            "status",
+        ]
+        read_only_fields = ['status']
+
+    def create(self, validated_data):
+        user = self.context['user']
+        resource_id = validated_data.pop('resource_id')
+        resource = get_object_or_404(Resource, pk=resource_id)
+
+        requestResource = RequestResource.objects.create(user=user, resource=resource, **validated_data)
+        return requestResource
     
 
 
-
-
+class MessageSerializer(serializers.ModelSerializer):
 
     
+    resource = serializers.SlugRelatedField(slug_field="name", read_only=True)
+    resource_id = serializers.IntegerField(write_only=True)
 
 
+    class Meta:
+        model = Message
+        fields = [
+            'resource',
+            'text', 
+            'on_date',
+            'resource_id'
+        ]
+        read_only_fields =['on_date','resource']
 
 
+    def create(self, validated_data):
+        
+        sender = self.context['user']
+        resource_id = validated_data.get('resource_id')
+        message = validated_data.get('text')
+        resource = get_object_or_404(Resource,pk=resource_id)
+
+        return Message.objects.create(resource=resource, text=message, sender=sender)
+    
+
+class RatingSerializerClass(serializers.ModelSerializer):
+
+    resource_id  = serializers.IntegerField(write_only=True)
+    item = serializers.CharField(source='resource.name', read_only=True)
+    by = serializers.CharField(source='user.profile.name', read_only=True)
+    class Meta:
+        model = Rating
+        fields = [
+            'item',
+            'by',
+            'resource_id',
+            'like',
+            "feedback"
+        ]
+
+    def create(self, validated_data):
+       
+       user = self.context['user']
+       resource_id = validated_data.get('resource_id')
+       like  = validated_data.get('like')
+       feedback= validated_data.get('feedback')
+       resource = Resource.objects.get(pk=resource_id)
+
+       return Rating.objects.create(user=user, resource=resource, like=like, feedback=feedback)
