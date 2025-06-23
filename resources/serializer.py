@@ -51,7 +51,7 @@ class UserSerializerClass(serializers.ModelSerializer):
         user.save()
 
         profile = Profile(**profile_data, user=user)
-
+        profile.save()
         return user
     
     def update(self, instance, validated_data):

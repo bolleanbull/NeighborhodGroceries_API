@@ -3,6 +3,13 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from rest_framework.request import Request
 from rest_framework.response import Response
+from django.http import HttpResponse, JsonResponse
+from rest_framework import filters
+from django_filters.rest_framework  import DjangoFilterBackend
+from .filters import ResourceFilter
+from rest_framework.pagination import PageNumberPagination
+
+
 
 
 from rest_framework.decorators import action
@@ -63,14 +70,22 @@ class UserApiViewSet(viewsets.ModelViewSet):
 
 class ResourceManagementViewSet(viewsets.ModelViewSet):
 
+    throttle_scope  = 'resource'
+
     queryset = Resource.objects.all()
     serializer_class = ResourceSerializerClass
     permission_classes = [IsAuthenticated]
+    filter_backends= [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'owner__profile__name',"location"]
+    ordering_fields = ['day_price','condition']
+    filterset_class = ResourceFilter
+
+
 
     def get_permissions(self):
         
         if self.action in ['list', 'retrieve']:
-            self.permission_classes = [IsAuthenticated]
+            self.permission_classes = [AllowAny]
             
         else: 
             self.permission_classes = [IsAdminOrResourceOwner]
@@ -178,6 +193,30 @@ class RatingViewSet(viewsets.ModelViewSet):
             self.permission_classes = [NoManZone]
             return [NoManZone()]
         return [permission() for permission in self.permission_classes]
+
+
+
+
+class LandAndBorrowHistoryViewSet(viewsets.ViewSet):
+
+    permission_classes  = [IsAuthenticated]
+
+    def list(self,request):
+        # land  and borrow historry of  the user 
+        published_resources = Resource.objects.select_related('owner').filter(owner=self.request.user)
+        resources_request_accepted_ids  = list(RequestResource.objects.select_related('resource').filter(status='Accepted', resource__owner=self.request.user).values_list("resource__id", flat=True))
+
+        borrowed_resources = Resource.objects.filter(id__in=resources_request_accepted_ids)
+
+        # this is serialized data 
+        publised_resources  = ResourceSerializerClass(published_resources, many=True).data
+        borrowed_resources = ResourceSerializerClass(borrowed_resources, many=True).data
+
+        return Response({
+            'published_resources': publised_resources, 
+            'borrowed_resources': borrowed_resources
+        })
+    
 
 
 

@@ -13,6 +13,7 @@ router.register('resources', views.ResourceManagementViewSet)
 router.register('requests', views.RequestResourceViewSet)
 router.register('message', views.MessageViewSet)
 router.register('rating', views.RatingViewSet)
+router.register('land_borrow_history', views.LandAndBorrowHistoryViewSet, basename='land_borrow_history')
 
 
 

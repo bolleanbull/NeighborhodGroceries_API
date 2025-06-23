@@ -21,7 +21,7 @@ class Profile(models.Model):
     name = models.CharField(max_length=50 )
     age = models.PositiveIntegerField()
     gender =  models.CharField(max_length=6, choices=GenderChoice)
-    user_role = models.CharField(choices=UserRole, default=UserRole.BOTH)
+    user_role = models.CharField(choices=UserRole, default=UserRole.BOTH, max_length=25)
     address  = models.CharField(max_length=300)
     phone =models.CharField(max_length=12)
     joined_date = models.DateTimeField(auto_now_add=True)
@@ -92,6 +92,6 @@ class Rating(models.Model):
     feedback = models.TextField()
 
     def __str__(self):
-        return f'{self.resource.name} rating {self.person.profile.name}'
+        return f'{self.resource.name} rating {self.user.profile.name}'
 
 

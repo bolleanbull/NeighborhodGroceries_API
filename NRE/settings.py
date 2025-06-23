@@ -132,7 +132,24 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication'
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 100,
+    'PAGE_SIZE': 10,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'resources.throttels.SustainedRateThrottle',
+        'resources.throttels.BurstRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle'
+        
+
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '2/minute',
+        'burst': '12/minute',
+        'sustained': '14/day',
+        'resource': '5/day',
+        
+
+
+    }
 
   
 }
