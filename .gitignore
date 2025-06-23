@@ -4,3 +4,4 @@ desktop.ini
 db.sqlite3
 rest_env
 request.http 
+.env 
